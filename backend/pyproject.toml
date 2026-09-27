@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "antarctic-dss"
+version = "0.1.0"
+description = "Antarctic Voyage Decision Support System"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.23",
+    "xarray>=2023.1",
+    "netcdf4>=1.6",
+    "pandas>=2.0",
+    "geopandas>=0.14",
+    "shapely>=2.0",
+    "pyproj>=3.5",
+    "xgboost>=1.7",
+    "scikit-learn>=1.3",
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "httpx>=0.24",
+    "python-dotenv>=1.0",
+    "pyarrow>=12.0",
+]
+
+[project.optional-dependencies]
+data = [
+    "copernicusmarine>=1.0",
+    "earthaccess>=0.8",
+    "cdsapi>=0.6",
+    "rioxarray>=0.15",
+]
+dev = [
+    "pytest>=7.0",
+    "matplotlib>=3.7",
+    "seaborn>=0.12",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
