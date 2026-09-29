@@ -1,17 +1,28 @@
 @echo off
 title Antarctic DSS - Public share
 REM Share the app with anyone via a temporary public link.
-REM   share_demo.bat                  production build + Pinggy tunnel (works on restrictive networks)
+REM   share_demo.bat                  production build; ngrok fixed link if set up (ngrok_domain.txt),
+REM                                   otherwise a Pinggy tunnel (new link every 60 minutes)
 REM   share_demo.bat dev              dev mode: your edits show up live (slower for visitors)
+REM   share_demo.bat pinggy           force Pinggy even if ngrok is set up
 REM   share_demo.bat cloudflare       use a Cloudflare tunnel instead (needs outbound port 7844)
 REM   share_demo.bat dev cloudflare   both
 
 set MODE=prod
 set TUNNEL=pinggy
+set NGROK_DOMAIN=
+REM ngrok_domain.txt (git-ignored) holds your free static domain, e.g. my-app.ngrok-free.app
+if exist "%~dp0ngrok_domain.txt" set /p NGROK_DOMAIN=<"%~dp0ngrok_domain.txt"
+if defined NGROK_DOMAIN (
+    where ngrok >nul 2>nul
+    if not errorlevel 1 set TUNNEL=ngrok
+)
 for %%A in (%*) do (
     if /i "%%A"=="dev" set MODE=dev
     if /i "%%A"=="cloudflare" set TUNNEL=cloudflare
+    if /i "%%A"=="pinggy" set TUNNEL=pinggy
 )
+echo Tunnel: %TUNNEL%
 
 if "%TUNNEL%"=="cloudflare" (
     where cloudflared >nul 2>nul
@@ -56,6 +67,12 @@ echo       Keep this window open; close it to stop sharing.
 echo.
 if "%TUNNEL%"=="cloudflare" (
     cloudflared tunnel --url http://localhost:3000
+    exit /b
+)
+if "%TUNNEL%"=="ngrok" (
+    echo Your permanent link: https://%NGROK_DOMAIN%
+    echo.
+    ngrok http --url=%NGROK_DOMAIN% 3000
     exit /b
 )
 

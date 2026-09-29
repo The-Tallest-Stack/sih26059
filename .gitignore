@@ -39,3 +39,6 @@ backend/data/
 
 .venv/
 backend/.venv/
+
+# Local ngrok static domain for share_demo.bat
+ngrok_domain.txt
