@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import { Coordinate, VoyageRequest, VoyageResult, DepartureOption, DataFreshness } from '../lib/types';
-import { planVoyage, fetchCurrentIcebergs, fetchDataFreshness } from '../lib/api';
+import { Coordinate, VoyageRequest, VoyageResult, DataFreshness } from '../lib/types';
+import { planVoyage, fetchCurrentIcebergs, fetchDataFreshness, fetchRiskMap } from '../lib/api';
 import VoyageForm from '../components/VoyageForm';
 import DepartureComparison from '../components/DepartureComparison';
 import DataFreshnessBar from '../components/DataFreshnessBar';
@@ -11,8 +11,11 @@ import DataFreshnessBar from '../components/DataFreshnessBar';
 // Dynamic import for MapLibre to avoid SSR issues
 const AntarcticMap = dynamic(() => import('../components/AntarcticMap'), {
   ssr: false,
-  loading: () => <div className="w-full h-full min-h-[600px] bg-gray-900 rounded-lg flex items-center justify-center text-gray-500">Loading Map...</div>
+  loading: () => <div className="w-full h-full bg-gray-900 rounded-lg flex items-center justify-center text-gray-500">Loading Map...</div>
 });
+
+// Minimum cell risk (0-1) drawn by the optional risk overlay.
+const RISK_OVERLAY_MIN = 0.3;
 
 export default function Home() {
   const [pointA, setPointA] = useState<Coordinate | undefined>();
@@ -22,6 +25,8 @@ export default function Home() {
   const [voyages, setVoyages] = useState<{result: VoyageResult, selectedIdx: number}[]>([]);
   const [icebergsGeoJSON, setIcebergsGeoJSON] = useState<GeoJSON.FeatureCollection | undefined>();
   const [freshness, setFreshness] = useState<DataFreshness[]>([]);
+  const [riskMapGeoJSON, setRiskMapGeoJSON] = useState<GeoJSON.FeatureCollection | undefined>();
+  const [showRiskOverlay, setShowRiskOverlay] = useState(false);
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +40,7 @@ export default function Home() {
           fetchDataFreshness().catch(() => [])
         ]);
         if (icebergs) setIcebergsGeoJSON(icebergs);
-        if (freshnessData) setFreshness(freshnessData as DataFreshness[]);
+        setFreshness(freshnessData);
       } catch (err) {
         console.error("Failed to load initial data", err);
       }
@@ -71,27 +76,60 @@ export default function Home() {
     setVoyages(prev => prev.filter((_, i) => i !== index));
   };
 
+  const selectOption = (voyageIdx: number, optionIdx: number) => {
+    setVoyages(prev => prev.map((v, i) => (i === voyageIdx ? { ...v, selectedIdx: optionIdx } : v)));
+  };
+
+  // Risk overlay for the most recent voyage: its vessel at the selected departure time.
+  const latest = voyages[voyages.length - 1];
+  const overlayVesselId = latest?.result.vesselId;
+  const overlayTime = latest && latest.result.status === 'completed'
+    ? latest.result.options[latest.selectedIdx]?.departureTime
+    : undefined;
+  useEffect(() => {
+    if (!overlayVesselId || !showRiskOverlay) {
+      setRiskMapGeoJSON(undefined);
+      return;
+    }
+    let cancelled = false;
+    fetchRiskMap(overlayVesselId, overlayTime)
+      .then(data => {
+        if (cancelled) return;
+        // Only show cells with meaningful risk; low-risk cells would tint the whole map.
+        setRiskMapGeoJSON({
+          ...data,
+          features: data.features.filter(f => (f.properties?.risk ?? 0) >= RISK_OVERLAY_MIN),
+        });
+      })
+      .catch(err => console.error('Failed to load risk map', err));
+    return () => { cancelled = true; };
+  }, [overlayVesselId, overlayTime, showRiskOverlay]);
+
   // Combine all selected routes into a single GeoJSON FeatureCollection to render them all
+  const routeColors = ['#ff3366', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
   const combinedRoutesGeoJSON: GeoJSON.FeatureCollection = {
     type: 'FeatureCollection',
-    features: voyages.map(v => {
+    features: voyages.map((v, idx) => {
       const option = v.result.options[v.selectedIdx];
-      return option?.routeGeoJSON?.features || [];
+      const features = option?.routeGeoJSON?.features || [];
+      return features.map(f => ({
+        ...f,
+        properties: {
+          ...f.properties,
+          voyageIndex: idx + 1,
+          color: routeColors[idx % routeColors.length]
+        }
+      }));
     }).flat() as GeoJSON.Feature[]
   };
 
   return (
-    <main className="min-h-screen p-4 pb-16 max-w-[1920px] mx-auto flex flex-col">
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold">Antarctic Voyage Decision Support System</h1>
-        <p className="text-gray-400">AI-Enabled Route Planning & Risk Assessment</p>
-      </header>
-
-      <div className="flex-grow flex flex-col xl:flex-row gap-6 overflow-hidden max-h-[calc(100vh-120px)]">
+    <main className="flex-1 min-h-0 p-3 w-full flex flex-col gap-2 overflow-y-auto xl:overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col xl:flex-row gap-3">
         {/* Left Sidebar - Controls & Info */}
         <div 
-          className="w-full xl:w-[450px] flex-shrink-0 space-y-6 flex flex-col overflow-y-auto overflow-x-hidden pr-2 pb-4"
-          style={{ resize: 'horizontal', minWidth: '350px', maxWidth: '50vw' }}
+          className="w-full xl:w-[26rem] flex-shrink-0 space-y-4 flex flex-col xl:overflow-y-auto overflow-x-hidden pr-1"
+          style={{ resize: 'horizontal', minWidth: '20rem', maxWidth: '50vw' }}
         >
           <VoyageForm 
             onSubmit={handlePlanVoyage} 
@@ -122,31 +160,42 @@ export default function Home() {
                 Delete
               </button>
               <h3 className="font-bold text-white mb-2">Voyage {idx + 1}</h3>
-              <DepartureComparison 
-                options={v.result.options} 
-                onSelectOption={(newIdx) => {
-                  setVoyages(prev => {
-                    const newVoyages = [...prev];
-                    newVoyages[idx].selectedIdx = newIdx;
-                    return newVoyages;
-                  });
-                }} 
+              {v.result.summaryMessage && (
+                <p className="text-xs text-gray-400 mb-2">{v.result.summaryMessage}</p>
+              )}
+              <DepartureComparison
+                options={v.result.options}
+                failed={v.result.status === 'failed'}
+                selectedIdx={v.selectedIdx}
+                onSelectOption={(newIdx) => selectOption(idx, newIdx)}
               />
             </div>
           ))}
         </div>
 
         {/* Right Main Area - Map */}
-        <div className="flex-grow min-h-[600px] xl:min-h-0 relative rounded-lg overflow-hidden border border-gray-800 flex flex-col">
-          <div className="absolute top-4 left-4 z-10 bg-gray-900/80 p-2 rounded text-sm pointer-events-none border border-gray-700">
-            Currently setting: <span className="font-bold text-blue-400">Point {settingPoint}</span>
+        <div className="flex-1 min-h-[24rem] xl:min-h-0 relative rounded-lg overflow-hidden border border-gray-800 flex flex-col">
+          <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
+            <div className="bg-gray-900/80 p-2 rounded text-sm pointer-events-none border border-gray-700">
+              Currently setting: <span className="font-bold text-blue-400">Point {settingPoint}</span>
+            </div>
+            {voyages.length > 0 && (
+              <label className="bg-gray-900/80 p-2 rounded text-sm border border-gray-700 flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showRiskOverlay}
+                  onChange={(e) => setShowRiskOverlay(e.target.checked)}
+                />
+                Show risk overlay
+              </label>
+            )}
           </div>
           
           <AntarcticMap 
             onMapClick={handleMapClick}
             routeGeoJSON={combinedRoutesGeoJSON}
             icebergsGeoJSON={icebergsGeoJSON}
-            riskMapGeoJSON={voyages.length > 0 ? voyages[0].result.seaIceGeoJSON : undefined}
+            riskMapGeoJSON={riskMapGeoJSON}
           />
         </div>
       </div>

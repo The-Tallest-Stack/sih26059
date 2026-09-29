@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from antarctic_dss.routing.departure import classify_risk, compute_confidence, DepartureOption
 from antarctic_dss.routing.astar import RouteResult
 
@@ -19,7 +19,7 @@ def test_confidence_degrades():
         iceberg_proximity_events=0, route_risk_score=0.1, confidence=0.9
     )
     
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     conf_24h = compute_confidence(now + timedelta(hours=24), route)
     conf_72h = compute_confidence(now + timedelta(hours=72), route)
     

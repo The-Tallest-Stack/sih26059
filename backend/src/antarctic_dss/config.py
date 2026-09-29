@@ -36,3 +36,8 @@ RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
 MODELS_DIR = DATA_DIR / "models"
 CACHE_DIR = DATA_DIR / "cache"
+
+# Backend-local cache of the environmental forecast (written by data/sync_forecasts.py,
+# read by the API). Kept separate from the training data under DATA_DIR.
+BACKEND_DIR = PROJECT_ROOT / "backend"
+FORECAST_ZARR = BACKEND_DIR / "data" / "cache" / "forecast.zarr"

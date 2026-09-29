@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent / "backend" / "src"))
 
 try:
-    from antarctic_dss.data.copernicus import download_historical_range
+    from antarctic_dss.data.copernicus import download_historical_range, download_bathymetry
     from antarctic_dss.config import RAW_DIR
 except ImportError as e:
     print(f"ImportError: {e}")
@@ -21,7 +21,10 @@ def main():
     parser = argparse.ArgumentParser(description='Download Copernicus Data (Sea Ice Drift, Ocean Reanalysis).')
     parser.add_argument('--start-year', type=int, default=2023, help='Start year for data download (inclusive)')
     parser.add_argument('--end-year', type=int, default=2023, help='End year for data download (inclusive)')
-    parser.add_argument('--dataset', type=str, choices=['seaice_drift_reprocessed', 'ocean_reanalysis', 'all'], default='all', help='Dataset to download')
+    parser.add_argument('--dataset', type=str,
+                        choices=['seaice_reanalysis', 'ocean_reanalysis', 'seaice_drift_reprocessed', 'bathymetry', 'all'],
+                        default='all',
+                        help="Dataset to download ('all' = training inputs: seaice_reanalysis + ocean_reanalysis)")
     
     args = parser.parse_args()
     
@@ -29,7 +32,12 @@ def main():
         logger.error("Could not import Copernicus download functions.")
         sys.exit(1)
         
-    datasets = ['seaice_drift_reprocessed', 'ocean_reanalysis'] if args.dataset == 'all' else [args.dataset]
+    if args.dataset == 'bathymetry':
+        path = download_bathymetry(RAW_DIR / "bathymetry")
+        logger.info(f"Bathymetry saved to {path}")
+        return
+
+    datasets = ['seaice_reanalysis', 'ocean_reanalysis'] if args.dataset == 'all' else [args.dataset]
     
     for ds_name in datasets:
         logger.info(f"Downloading {ds_name} for {args.start_year}-{args.end_year}...")

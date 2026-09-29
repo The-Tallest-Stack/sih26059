@@ -15,6 +15,7 @@ class VesselProfileSchema(BaseModel):
     draft_m: float
     ice_class: str
     description: str = ''
+    max_ice_thickness_m: Optional[float] = None
 
 class VoyageRequest(BaseModel):
     point_a: CoordinateSchema
@@ -43,6 +44,7 @@ class DepartureOptionSchema(BaseModel):
     distance_km: float
     max_ice_concentration_en_route: float
     iceberg_proximity_events: int
+    icebergs_avoided: int = 0
     prediction_confidence: float
     route_geojson: Dict[str, Any]  # GeoJSON FeatureCollection
 
@@ -55,9 +57,9 @@ class VoyageResultSchema(BaseModel):
 
 class DataFreshnessSchema(BaseModel):
     source: str
-    last_updated: datetime
+    last_updated: Optional[datetime] = None  # None when the source is unavailable
     age_minutes: float
-    status: str  # 'fresh', 'stale', 'unavailable'
+    status: str  # 'fresh', 'stale', 'unavailable', 'synthetic'
 
 class IcebergPositionSchema(BaseModel):
     iceberg_id: str

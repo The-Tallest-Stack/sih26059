@@ -14,6 +14,26 @@
   }
 }
 
+/* Slightly smaller than the browser's 16px default so the app fits laptop screens at 100% zoom,
+   and smaller again on short screens. */
+html {
+  font-size: 87.5%;
+}
+
+@media (max-height: 800px), (max-width: 1440px) {
+  html {
+    font-size: 81.25%;
+  }
+}
+
+/* Map scale bars: compact, readable on the dark map UI. */
+.maplibregl-ctrl-scale {
+  background: rgba(17, 24, 39, 0.8);
+  color: #e5e7eb;
+  border-color: #9ca3af;
+  font-size: 0.75rem;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
