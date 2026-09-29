@@ -72,7 +72,7 @@ if "%TUNNEL%"=="cloudflare" (
 if "%TUNNEL%"=="ngrok" (
     echo Your permanent link: https://%NGROK_DOMAIN%
     echo.
-    ngrok http --url=%NGROK_DOMAIN% 3000
+    ngrok http --domain=%NGROK_DOMAIN% 3000
     exit /b
 )
 
