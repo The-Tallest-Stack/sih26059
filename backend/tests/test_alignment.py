@@ -33,7 +33,7 @@ def test_sample_latlon_returns_dict():
 
 def test_chronological_split_no_leakage():
     # Create sample df with dates from 2020-2024
-    dates = pd.date_range(start='2020-01-01', end='2024-12-31', freq='M')
+    dates = pd.date_range(start='2020-01-01', end='2024-12-31', freq='ME')
     df = pd.DataFrame({
         'timestamp': dates,
         'value': range(len(dates))

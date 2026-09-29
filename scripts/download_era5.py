@@ -21,6 +21,8 @@ def main():
     parser = argparse.ArgumentParser(description='Download ERA5 atmospheric data.')
     parser.add_argument('--start-year', type=int, default=2023, help='Start year for data download (inclusive)')
     parser.add_argument('--end-year', type=int, default=2023, help='End year for data download (inclusive)')
+    parser.add_argument('--wind-only', action='store_true',
+                        help='Download only 10 m wind, one request per year (all the training pipeline needs; much faster)')
     
     args = parser.parse_args()
     
@@ -31,7 +33,12 @@ def main():
     logger.info(f"Downloading ERA5 data for {args.start_year}-{args.end_year}...")
     try:
         output_dir = RAW_DIR / "era5"
-        download_era5_range(start_year=args.start_year, end_year=args.end_year, output_dir=output_dir)
+        if args.wind_only:
+            from antarctic_dss.data.era5 import download_era5_wind_year
+            for year in range(args.start_year, args.end_year + 1):
+                download_era5_wind_year(year, output_dir)
+        else:
+            download_era5_range(start_year=args.start_year, end_year=args.end_year, output_dir=output_dir)
         logger.info("ERA5 data download complete.")
     except Exception as e:
         logger.error(f"Error downloading ERA5 data: {e}")

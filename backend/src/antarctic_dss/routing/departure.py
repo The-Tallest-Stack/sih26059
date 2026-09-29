@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Callable, Dict, Any
 
 from antarctic_dss.routing.vessel import VesselProfile
-from antarctic_dss.routing.astar import RouteResult, RoutingGrid, time_dependent_astar
+from antarctic_dss.routing.astar import RouteResult, RoutingGrid, RouteNotFoundError, find_route
 from antarctic_dss.routing.risk_map import TimeDependentRiskMap
 
 @dataclass
@@ -29,11 +29,15 @@ def classify_risk(risk_score: float) -> str:
 
 def compute_confidence(departure_time: datetime, route: RouteResult) -> float:
     """Compute confidence based on forecast horizon."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
+    if departure_time.tzinfo is None:
+        departure_time = departure_time.replace(tzinfo=timezone.utc)
     # Ensure forecast horizon is positive
     horizon_days = max(0.0, (departure_time - now).total_seconds() / 86400.0)
     base_confidence = 0.95
     confidence = base_confidence - (0.03 * horizon_days)
+    # A route planned on synthetic/fallback environment data can't be more certain than its inputs.
+    confidence = min(confidence, route.confidence)
     return max(0.3, min(0.95, confidence))
 
 def evaluate_departure_window(
@@ -49,33 +53,46 @@ def evaluate_departure_window(
 ) -> List[DepartureOption]:
     
     options = []
+    failed_options = []
     current_time = window_start
     while current_time <= window_end:
-        # Mock environment steps
-        # In real code:
-        # env_data = env_data_loader(...)
-        # trajectories = trajectory_predictor(...)
-        # grid.risk_map.build_all_slices(...)
-        
-        route = time_dependent_astar(grid, vessel, start, goal, current_time)
-        if route:
-            eta = current_time + timedelta(hours=route.total_time_hours)
-            conf = compute_confidence(current_time, route)
+        try:
+            route = find_route(grid, vessel, start, goal, current_time)
+            if route:
+                eta = current_time + timedelta(hours=route.total_time_hours)
+                conf = compute_confidence(current_time, route)
+                opt = DepartureOption(
+                    departure_time=current_time,
+                    route=route,
+                    risk_summary=classify_risk(route.route_risk_score),
+                    eta=eta,
+                    travel_time_hours=route.total_time_hours,
+                    distance_km=route.total_distance_km,
+                    max_ice_concentration_en_route=route.max_ice_exposure,
+                    iceberg_proximity_events=route.iceberg_proximity_events,
+                    prediction_confidence=conf,
+                    data_freshness={}
+                )
+                options.append(opt)
+        except RouteNotFoundError as e:
             opt = DepartureOption(
                 departure_time=current_time,
-                route=route,
-                risk_summary=classify_risk(route.route_risk_score),
-                eta=eta,
-                travel_time_hours=route.total_time_hours,
-                distance_km=route.total_distance_km,
-                max_ice_concentration_en_route=route.max_ice_exposure,
-                iceberg_proximity_events=route.iceberg_proximity_events,
-                prediction_confidence=conf,
+                route=RouteResult([start, goal], [current_time, current_time], 0, 0, 0, 0, 0, 0, 0),
+                risk_summary=str(e),
+                eta=current_time,
+                travel_time_hours=0,
+                distance_km=0,
+                max_ice_concentration_en_route=0,
+                iceberg_proximity_events=0,
+                prediction_confidence=0.0,
                 data_freshness={}
             )
-            options.append(opt)
+            failed_options.append(opt)
             
         current_time += timedelta(hours=interval_hours)
+        
+    if not options:
+        return failed_options
         
     options.sort(key=lambda x: x.route.route_risk_score)
     return options

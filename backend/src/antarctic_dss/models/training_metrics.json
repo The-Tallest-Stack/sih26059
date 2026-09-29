@@ -1,0 +1,128 @@
+{
+  "rows": {
+    "train": 3846,
+    "val": 2825,
+    "test": 1960
+  },
+  "split": {
+    "train_end": "2021-12-31",
+    "val_end": "2022-12-31"
+  },
+  "best_iteration": {
+    "dx": 60,
+    "dy": 81
+  },
+  "test_model": {
+    "rmse_dx": 7215.4143268468315,
+    "rmse_dy": 6195.153520843302,
+    "rmse_total": 9510.106784620439,
+    "mae_total": 6706.216282339742,
+    "mean_position_error_km": 6.706216282339742,
+    "r2_dx": 0.34321080918954927,
+    "r2_dy": 0.29328925199587097
+  },
+  "test_physics_baseline": {
+    "rmse_dx": 13231.495112205757,
+    "rmse_dy": 11343.486240994702,
+    "rmse_total": 17428.343094051164,
+    "mae_total": 13504.638923755889,
+    "mean_position_error_km": 13.50463892375589
+  },
+  "test_no_motion_baseline": {
+    "rmse_dx": 8913.539440340142,
+    "rmse_dy": 7847.372323963699,
+    "rmse_total": 11875.707883970988,
+    "mae_total": 8563.28997181728,
+    "mean_position_error_km": 8.56328997181728
+  },
+  "test_by_season": {
+    "DJF": {
+      "rows": 481,
+      "xgboost_km": 5.3931770280156455,
+      "physics_km": 12.458210619949762,
+      "no_motion_km": 5.757546524550241
+    },
+    "MAM": {
+      "rows": 686,
+      "xgboost_km": 6.747309659570306,
+      "physics_km": 12.926766823158859,
+      "no_motion_km": 8.456218517998792
+    },
+    "JJA": {
+      "rows": 662,
+      "xgboost_km": 8.080973574121503,
+      "physics_km": 15.214136639465872,
+      "no_motion_km": 11.444030170634347
+    },
+    "SON": {
+      "rows": 131,
+      "xgboost_km": 4.3649376364633925,
+      "physics_km": 11.734141117193296,
+      "no_motion_km": 4.868355649970172
+    }
+  },
+  "test_including_grounded": {
+    "rows": 2728,
+    "xgboost_km": 6.137449191060516,
+    "no_motion_km": 7.752925905860059
+  },
+  "uncertainty_km_per_hour": 0.28770217399268155,
+  "feature_importance": [
+    {
+      "feature": "seaice_drift_v",
+      "importance_mean": 0.13400284945964813
+    },
+    {
+      "feature": "seaice_drift_u",
+      "importance_mean": 0.12754887342453003
+    },
+    {
+      "feature": "physics_pred_dx",
+      "importance_mean": 0.10713964700698853
+    },
+    {
+      "feature": "lon",
+      "importance_mean": 0.07877899706363678
+    },
+    {
+      "feature": "ocean_current_v",
+      "importance_mean": 0.069465272128582
+    },
+    {
+      "feature": "lat",
+      "importance_mean": 0.06428196281194687
+    },
+    {
+      "feature": "ocean_current_u",
+      "importance_mean": 0.06175156310200691
+    },
+    {
+      "feature": "seaice_concentration",
+      "importance_mean": 0.06024433672428131
+    },
+    {
+      "feature": "physics_pred_dy",
+      "importance_mean": 0.05904484540224075
+    },
+    {
+      "feature": "size_km2",
+      "importance_mean": 0.05238528177142143
+    },
+    {
+      "feature": "month_cos",
+      "importance_mean": 0.05235648155212402
+    },
+    {
+      "feature": "wind_v",
+      "importance_mean": 0.046336859464645386
+    },
+    {
+      "feature": "wind_u",
+      "importance_mean": 0.045987341552972794
+    },
+    {
+      "feature": "month_sin",
+      "importance_mean": 0.04067572206258774
+    }
+  ]
+}

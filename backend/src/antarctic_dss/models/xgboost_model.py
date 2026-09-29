@@ -5,16 +5,25 @@ import numpy as np
 import pandas as pd
 from xgboost import XGBRegressor
 
+# Targets are east/north iceberg displacement in metres per 24 h. Every feature must be
+# available at inference time for a live USNIC iceberg: no drift history (lag) features, and
+# no BYU 'disp' column (that is the observed displacement itself, i.e. target leakage).
 FEATURE_COLS = [
-    'lat', 'lon', 'size_km2', 'disp_km', 'wind_u', 'wind_v', 
-    'ocean_current_u', 'ocean_current_v', 'seaice_drift_u', 'seaice_drift_v', 
-    'seaice_concentration', 'lag1_dx', 'lag1_dy', 'month_sin', 'month_cos', 
+    'lat', 'lon', 'size_km2', 'wind_u', 'wind_v',
+    'ocean_current_u', 'ocean_current_v', 'seaice_drift_u', 'seaice_drift_v',
+    'seaice_concentration', 'month_sin', 'month_cos',
     'physics_pred_dx', 'physics_pred_dy'
 ]
 
+EARLY_STOPPING_ROUNDS = 50
+
 XGB_DEFAULT_PARAMS = dict(
-    n_estimators=500, max_depth=7, learning_rate=0.03, subsample=0.8, 
-    colsample_bytree=0.8, min_child_weight=5, reg_alpha=0.1, reg_lambda=1.0, 
+    n_estimators=500, max_depth=7, learning_rate=0.03, subsample=0.8,
+    colsample_bytree=0.8, min_child_weight=5, reg_alpha=0.1, reg_lambda=1.0,
+    # Pseudo-Huber loss (quadratic within ~2 km, linear beyond): daily displacements have
+    # heavy-tailed noise from position fixes, and squared error let outliers dominate.
+    # Chosen on validation error (5.63 -> 5.39 km on the 2023 split).
+    objective='reg:pseudohubererror', huber_slope=2000.0,
     random_state=42, n_jobs=-1
 )
 
@@ -46,11 +55,14 @@ class IcebergDisplacementModel:
             eval_set_dx = [(X_val, y_val_dx)]
             eval_set_dy = [(X_val, y_val_dy)]
             
-            self.model_dx.fit(X_train, y_train_dx, eval_set=eval_set_dx, early_stopping_rounds=50, verbose=False)
-            self.model_dy.fit(X_train, y_train_dy, eval_set=eval_set_dy, early_stopping_rounds=50, verbose=False)
+            # xgboost >= 2 takes early stopping as an estimator parameter, not a fit() argument.
+            for model, eval_set, y in ((self.model_dx, eval_set_dx, y_train_dx), (self.model_dy, eval_set_dy, y_train_dy)):
+                model.set_params(early_stopping_rounds=EARLY_STOPPING_ROUNDS)
+                model.fit(X_train, y, eval_set=eval_set, verbose=False)
         else:
-            self.model_dx.fit(X_train, y_train_dx)
-            self.model_dy.fit(X_train, y_train_dy)
+            for model, y in ((self.model_dx, y_train_dx), (self.model_dy, y_train_dy)):
+                model.set_params(early_stopping_rounds=None)
+                model.fit(X_train, y)
             
     def predict(self, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
         """

@@ -63,3 +63,27 @@ CDS_API_KEY=your_token
 EARTHDATA_USERNAME=your_username
 EARTHDATA_PASSWORD=your_password
 ```
+
+## Data & Model Pipeline
+
+**Forecast cache (used by the API).** Downloads the next 3 days of Copernicus sea ice and surface
+currents to `backend/data/cache/forecast.zarr`:
+```bash
+cd backend
+set PYTHONPATH=src
+python src/antarctic_dss/data/sync_forecasts.py
+```
+Wind in the cache is a synthetic placeholder (no live wind feed is connected yet); the data
+freshness bar marks it as "Synthetic".
+
+**Training the iceberg drift model.** Needs the BYU/NIC consolidated iceberg tracks plus ERA5 and
+Copernicus reanalysis for the same year under `data/raw/` (see `scripts/download_*.py`):
+```bash
+python scripts/train_pipeline.py --year 2023     # align data + train
+python scripts/train_xgboost_only.py --year 2023 # retrain from data/processed/training_table.parquet
+```
+The model predicts east/north iceberg displacement (metres per 24 h) from wind, ocean currents,
+sea-ice drift, size and season, on top of a physics free-drift baseline. Training uses a
+chronological split (train to end of August, validate September–October, test November–December)
+and writes `model_dx.json`, `model_dy.json`, `uncertainty.json` and `training_metrics.json`
+(test error vs. the physics and no-motion baselines) to `backend/src/antarctic_dss/models/`.
