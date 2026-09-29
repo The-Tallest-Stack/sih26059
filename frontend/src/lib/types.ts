@@ -27,6 +27,11 @@ export interface DepartureOption {
   icebergProximityEvents: number;
   icebergsAvoided: number;
   predictionConfidence: number; // fraction 0-1
+  riskScore?: number; // 0-1, drives riskSummary
+  riskBreakdown?: {
+    ice: number; icebergs: number; weather: number; // components, each 0-1
+    max_wind_ms: number; max_wave_m: number;
+  };
   routeGeoJSON: GeoJSON.FeatureCollection;
 }
 

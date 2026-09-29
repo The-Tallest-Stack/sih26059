@@ -75,7 +75,19 @@ export default function DepartureComparison({ options, failed, selectedIdx, onSe
                 <span className="text-gray-400 block">Confidence</span>
                 <span>{(option.predictionConfidence * 100).toFixed(1)}%</span>
               </div>
+              {option.riskBreakdown && (
+                <div>
+                  <span className="text-gray-400 block">Peak Wind / Waves</span>
+                  <span>{option.riskBreakdown.max_wind_ms.toFixed(0)} m/s / {option.riskBreakdown.max_wave_m.toFixed(1)} m</span>
+                </div>
+              )}
             </div>
+            {option.riskScore !== undefined && option.riskBreakdown && (
+              <div className="text-xs text-gray-400 mb-3" title="Risk score = 45% ice + 35% icebergs + 20% weather. Low < 0.30 <= Medium < 0.70 <= High">
+                Risk score <span className="text-white font-semibold">{option.riskScore.toFixed(2)}</span>
+                {' '}= ice {option.riskBreakdown.ice.toFixed(2)} · icebergs {option.riskBreakdown.icebergs.toFixed(2)} · weather {option.riskBreakdown.weather.toFixed(2)}
+              </div>
+            )}
 
             <button
               onClick={() => onSelectOption(idx)}

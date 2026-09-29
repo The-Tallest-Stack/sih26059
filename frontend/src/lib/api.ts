@@ -49,6 +49,8 @@ export async function planVoyage(request: VoyageRequest): Promise<VoyageResult> 
       icebergProximityEvents: opt.iceberg_proximity_events,
       icebergsAvoided: opt.icebergs_avoided || 0,
       predictionConfidence: opt.prediction_confidence,
+      riskScore: opt.route_risk_score ?? undefined,
+      riskBreakdown: opt.risk_breakdown && Object.keys(opt.risk_breakdown).length ? opt.risk_breakdown : undefined,
       routeGeoJSON: opt.route_geojson
     }))
   };

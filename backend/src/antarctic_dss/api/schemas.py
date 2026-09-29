@@ -45,6 +45,8 @@ class DepartureOptionSchema(BaseModel):
     max_ice_concentration_en_route: float
     iceberg_proximity_events: int
     icebergs_avoided: int = 0
+    route_risk_score: Optional[float] = None
+    risk_breakdown: Dict[str, float] = {}
     prediction_confidence: float
     route_geojson: Dict[str, Any]  # GeoJSON FeatureCollection
 

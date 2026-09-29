@@ -1,7 +1,7 @@
 import heapq
 import numpy as np
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Optional, List, Tuple, Dict
 
@@ -30,6 +30,8 @@ class RouteResult:
     iceberg_proximity_events: int
     route_risk_score: float
     confidence: float
+    # Components of route_risk_score (each 0-1) and the weather extremes behind them.
+    risk_breakdown: Dict[str, float] = field(default_factory=dict)
 
 class RouteNotFoundError(ValueError):
     """Raised by find_route with a human-readable reason when no route exists."""
@@ -159,6 +161,13 @@ def compute_route_metrics(grid: RoutingGrid, vessel: VesselProfile, cells: List[
         'iceberg_proximity_events': iceberg_events,
         'route_risk_score': float(np.clip(risk_score, 0.0, 1.0)),
         'confidence': confidence,
+        'risk_breakdown': {
+            'ice': round(ice_component, 3),
+            'icebergs': round(iceberg_component, 3),
+            'weather': round(weather_component, 3),
+            'max_wind_ms': round(max(winds) if winds else 0.0, 1),
+            'max_wave_m': round(max(waves) if waves else 0.0, 1),
+        },
     }
 
 def find_route(grid: RoutingGrid, vessel: VesselProfile, start: Tuple[float, float], goal: Tuple[float, float],

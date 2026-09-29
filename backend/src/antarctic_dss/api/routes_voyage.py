@@ -307,6 +307,8 @@ def plan_voyage(request: VoyageRequest) -> VoyageResultSchema:
                 'iceberg_proximity_events': opt.route.iceberg_proximity_events,
                 'icebergs_avoided': len(direct_line_icebergs - near_route),
                 'prediction_confidence': opt.prediction_confidence,
+                'route_risk_score': opt.route.route_risk_score,
+                'risk_breakdown': opt.route.risk_breakdown,
                 'route_geojson': {
                     'type': 'FeatureCollection',
                     'features': [_line_feature(opt.route.path, {

@@ -20,7 +20,12 @@ class DepartureOption:
     data_freshness: Dict[str, str]
 
 def classify_risk(risk_score: float) -> str:
-    """Classify numeric risk score into categorical string."""
+    """Classify numeric risk score into categorical string.
+
+    The score is rounded to 2 decimals first, so near-identical routes (e.g. 0.2995 vs 0.3001)
+    don't get different labels from meaningless differences at a threshold.
+    """
+    risk_score = round(risk_score, 2)
     if risk_score < 0.3:
         return 'Low'
     if risk_score < 0.7:
