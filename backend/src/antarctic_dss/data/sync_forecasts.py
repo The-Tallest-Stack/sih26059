@@ -67,6 +67,13 @@ def _synthetic_wind(grid: xr.Dataset) -> xr.Dataset:
         'wind_v': xr.DataArray(np.random.normal(-2.0, 1.5, shape).astype(np.float32), coords=coords, dims=dims, attrs=attrs),
     })
 
+STEPS = ['Sea ice forecast', 'Surface currents', 'Waves', 'ECMWF wind', 'Merging', 'Writing cache']
+
+def _step(n: int):
+    """Overall progress line, e.g. [###---] Step 3/6: Waves"""
+    done = '#' * (n - 1) + '-' * (len(STEPS) - n + 1)
+    print(f"\n[{done}] Step {n}/{len(STEPS)}: {STEPS[n - 1]}...", flush=True)
+
 def sync_forecasts():
     from antarctic_dss.config import FORECAST_ZARR as output_zarr
     output_zarr.parent.mkdir(parents=True, exist_ok=True)
@@ -75,7 +82,10 @@ def sync_forecasts():
     start_date = now.strftime('%Y-%m-%d')
     end_date = (now + datetime.timedelta(days=FORECAST_DAYS)).strftime('%Y-%m-%d')
 
-    print(f"Opening Copernicus sea-ice forecast {start_date} to {end_date} lazily...")
+    import logging
+    logging.getLogger('copernicusmarine').setLevel(logging.WARNING)  # hide chatty INFO logs
+    print(f"Refreshing {FORECAST_DAYS}-day Antarctic forecast ({start_date} to {end_date})")
+    _step(1)
     ds = open_dataset_remote('ocean_forecast', start_date, end_date)
     subset = ds.sel(latitude=LAT_SLICE)
     keep = ['siconc', 'sithick', 'usi', 'vsi']
@@ -83,8 +93,9 @@ def sync_forecasts():
     grid = subset[['time', 'latitude', 'longitude']]
 
     parts = [subset]
-    for name, loader in [('surface currents (uo, vo)', lambda: _surface_currents(start_date, end_date, grid)),
-                         ('waves (swh)', lambda: _waves(start_date, end_date, grid))]:
+    for step, (name, loader) in enumerate([('surface currents (uo, vo)', lambda: _surface_currents(start_date, end_date, grid)),
+                         ('waves (swh)', lambda: _waves(start_date, end_date, grid))], start=2):
+        _step(step)
         try:
             parts.append(loader())
             print(f"Added {name}.")
@@ -92,6 +103,7 @@ def sync_forecasts():
             print(f"Warning: {name} unavailable, continuing without: {e}")
 
     wind_is_synthetic = 0
+    _step(4)
     try:
         parts.append(_ecmwf_wind(grid, output_zarr.parent))
         print("Added ECMWF 10 m wind forecast.")
@@ -100,6 +112,7 @@ def sync_forecasts():
         parts.append(_synthetic_wind(grid))
         wind_is_synthetic = 1
 
+    _step(5)
     merged = xr.merge(parts, compat='override', join='left')
     merged.attrs.update(synced_at=now.isoformat(), wind_is_synthetic=wind_is_synthetic,
                         forecast_days=FORECAST_DAYS)
@@ -114,12 +127,14 @@ def sync_forecasts():
     # Write to a temporary store and swap it in, so a failed sync never destroys the old cache.
     import shutil
     tmp_zarr = output_zarr.with_name(output_zarr.name + '.tmp')
-    print("Writing Zarr cache...")
-    merged.to_zarr(tmp_zarr, mode='w', consolidated=True)
+    _step(6)
+    from dask.diagnostics import ProgressBar
+    with ProgressBar(dt=1.0):  # percentage bar: downloading + writing is the slow part
+        merged.to_zarr(tmp_zarr, mode='w', consolidated=True)
     if output_zarr.exists():
         shutil.rmtree(output_zarr)
     tmp_zarr.rename(output_zarr)
-    print(f"Cached {FORECAST_DAYS}-day forecast ({', '.join(merged.data_vars)}) to {output_zarr}")
+    print(f"\n[{'#' * len(STEPS)}] Done. Cached {FORECAST_DAYS}-day forecast ({', '.join(merged.data_vars)}) to {output_zarr}")
 
 if __name__ == '__main__':
     sync_forecasts()

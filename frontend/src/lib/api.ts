@@ -1,6 +1,8 @@
 import { VoyageRequest, VoyageResult, DataFreshness, VesselProfile } from './types';
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Relative by default: requests go to this website, which forwards /api to the backend
+// (next.config.mjs). Set NEXT_PUBLIC_API_URL only to call a backend directly.
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 async function getJSON<T>(path: string, what: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`);
