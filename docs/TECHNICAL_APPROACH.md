@@ -43,6 +43,34 @@ and storms — using **forecasts of where the icebergs will drift**.
 
 ---
 
+## 3b. Frontend, Backend & Data Storage
+
+| Layer | Technology | What it does |
+|---|---|---|
+| **Frontend** (what users see) | **Next.js 14** (React + TypeScript), **Tailwind CSS**, **MapLibre GL** (3D globe map) | Route planner, AI trajectory predictor, risk overlay, data-freshness bar. Runs in the browser. |
+| **Backend** (the brain) | **Python + FastAPI** (REST API, served by Uvicorn) | Runs the drift model, builds risk maps, finds routes, compares departures. |
+| **Science libraries** | xarray, NumPy, GeoPandas / Shapely, XGBoost, SciPy | Gridded climate data, geography (land, islands, distances), machine learning |
+| **Data storage** | Files, not a traditional database (see below) | Fast to read large gridded data; no database server to run |
+
+**Why no traditional database (SQL)?** Almost all our data is large **gridded science data**
+(sea ice on a 1/12° map, every day) — scientific file formats handle this far better than tables.
+
+| Data | Stored as | Why |
+|---|---|---|
+| 10-day forecast (sea ice, currents, waves, wind) | **Zarr** (chunked array store) | Reads just the slice needed, fast |
+| Raw downloads (ERA5, Copernicus) | **NetCDF** (standard climate format) | The format providers publish in |
+| Training table (iceberg fixes + conditions) | **Parquet** (compressed table) | Fast, compact tables for ML |
+| Trained model | **JSON** (XGBoost model files) | Portable, versioned in Git |
+| Land, ice shelves | **GeoJSON** | Standard map shapes |
+| Live icebergs, planned voyages | **In memory** (cached 30 min / per session) | Always fresh; demo doesn't need history |
+
+**How they talk:** Browser → Next.js website → forwards `/api/...` → FastAPI backend → reads Zarr / model files → returns GeoJSON routes to draw on the map.
+
+*Production upgrade:* a database such as **PostgreSQL + PostGIS** would store saved voyages,
+user accounts and iceberg history.
+
+---
+
 ## 4. Step 1 — Gathering the Data
 
 | What | From | Why |
